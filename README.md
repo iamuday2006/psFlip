@@ -25,11 +25,14 @@ That token loop is wasteful — especially inside agentic workflows where every 
 
 ## The Fix
 
-**psFlip** is a lightweight, under 3 kilobyte offline C++ CLI tool that sits between your bash muscle memory and PowerShell. You type bash, it outputs PowerShell — instantly, locally, zero API calls.
+**psFlip** is a lightweight, under 1 MB offline C++ CLI tool that sits between your bash muscle memory and PowerShell. You type bash, it outputs PowerShell — instantly, locally, zero API calls.
 
-```
-psFlip> rm -rf dist
-→ Remove-Item -Recurse -Force dist
+```bash
+run> psFlip.exe
+psFlip> cd /home/user/projects    →  Set-Location /home/user/projects
+psFlip> grep "TODO" src/main.cpp  →  Select-String "TODO" src/main.cpp
+psFlip> rm -rf dist               → Remove-Item -Recurse -Force dist
+psFlip> mkdir new-folder          →  New-Item -ItemType Directory new-folder
 ```
 
 No internet. No model. No token burn. Just a lookup table and a compiled binary.
@@ -48,13 +51,4 @@ That's it.
 ```
 ---
 
-## Usage
-
-```bash
-psFlip.exe
-psFlip> cd /home/user/projects    →  Set-Location /home/user/projects
-psFlip> grep "TODO" src/main.cpp  →  Select-String "TODO" src/main.cpp
-psFlip> mkdir new-folder          →  New-Item -ItemType Directory new-folder
-```
 Thank you for using psFlip! If you find a command missing, feel free to contribute by adding it to the `commands.txt` file and recompiling. Happy coding!
----
