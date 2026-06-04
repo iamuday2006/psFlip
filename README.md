@@ -25,7 +25,7 @@ That token loop is wasteful — especially inside agentic workflows where every 
 
 ## The Fix
 
-**psFlip** is a lightweight, under 1 MB offline C++ CLI tool that sits between your bash muscle memory and PowerShell. You type bash, it outputs PowerShell — instantly, locally, zero API calls.
+**psFlip** is a lightweight, under 1 MB offline C++ CLI tool that sits between your bash muscle memory and PowerShell. You type bash, it outputs PowerShell — instantly, locally, zero API calls. Just tell your ide agent to run this exe file before running any commands in terminal. 
 
 ```bash
 run> psFlip.exe
@@ -51,4 +51,4 @@ That's it.
 ```
 ---
 
-Thank you for using psFlip! If you find a command missing, feel free to contribute by adding it to the `commands.txt` file and recompiling. Happy coding!
+Thank you for using psFlip! If you find a command missing, feel free to by adding it to the `char tree`. Happy coding!
