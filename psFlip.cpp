@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <conio.h>
+#include <windows.h>
+#include <fstream>
 
 // Map common Linux-like commands to equivalent PowerShell commands.
 // This lets users type familiar commands while the tool runs the translated version.
@@ -161,10 +164,100 @@ std::string translate(const std::string& input) {
 // Read a full line from standard input.
 // If the user enters nothing, print a warning and return an empty string.
 std::string getUserInput() {
-    std::string input;
-    std::getline(std::cin, input);
-    if (input.empty()) std::cout << "No input\n";
-    return input;
+    // Simple line editor that supports Tab completion and basic editing.
+    std::string line;
+    const char PROMPT[] = "psFlip> ";
+
+    while (true) {
+        int ch = _getch();
+        if (ch == 13) { // Enter
+            std::cout << std::endl;
+            break;
+        } else if (ch == 8) { // Backspace
+            if (!line.empty()) {
+                line.pop_back();
+                std::cout << "\b \b" << std::flush;
+            }
+        } else if (ch == 9) { // Tab
+            // Find last token prefix
+            size_t pos = line.find_last_of(' ');
+            std::string prefix = (pos == std::string::npos) ? line : line.substr(pos + 1);
+
+            std::vector<std::string> candidates;
+            int cmdSize = sizeof(commandMap) / sizeof(commandMap[0]);
+            for (int i = 0; i < cmdSize; ++i) {
+                std::string cmd = commandMap[i][0];
+                if (cmd.rfind(prefix, 0) == 0) candidates.push_back(cmd);
+            }
+
+            // enumerate files in current directory using WinAPI for better portability
+            std::string pattern = prefix + "*";
+            WIN32_FIND_DATAA findData;
+            HANDLE hFind = FindFirstFileA(pattern.c_str(), &findData);
+            if (hFind != INVALID_HANDLE_VALUE) {
+                do {
+                    std::string name = findData.cFileName;
+                    if (name.rfind(prefix, 0) == 0) candidates.push_back(name);
+                } while (FindNextFileA(hFind, &findData));
+                FindClose(hFind);
+            }
+
+            if (candidates.size() == 1) {
+                std::string completion = candidates[0].substr(prefix.size());
+                line += completion;
+                std::cout << completion << std::flush;
+            } else if (candidates.size() > 1) {
+                std::cout << std::endl;
+                for (auto &c : candidates) std::cout << c << "  ";
+                std::cout << std::endl;
+                std::cout << PROMPT << line << std::flush;
+            }
+        } else if (ch == 3) { // Ctrl-C
+            std::cout << "^C" << std::endl;
+            line.clear();
+            break;
+        } else {
+            line.push_back((char)ch);
+            std::cout << (char)ch << std::flush;
+        }
+    }
+
+    if (line.empty()) std::cout << "No input\n";
+    return line;
+}
+
+
+// Detect a bash-style for loop and translate to PowerShell foreach.
+// Example supported pattern: for i in 1 2 3; do echo $i; done
+std::string translateForLoop(const std::string &input) {
+    std::string s = input;
+    // naive detection
+    if (s.rfind("for ", 0) != 0) return "";
+
+    size_t inPos = s.find(" in ");
+    size_t doPos = s.find("; do ");
+    size_t donePos = s.rfind("; done");
+    if (inPos == std::string::npos || doPos == std::string::npos || donePos == std::string::npos) return "";
+
+    std::string var = trim(s.substr(4, inPos - 4));
+    std::string list = trim(s.substr(inPos + 4, doPos - (inPos + 4)));
+    std::string body = trim(s.substr(doPos + 5, donePos - (doPos + 5)));
+
+    if (var.empty() || list.empty() || body.empty()) return "";
+
+    // convert list (space separated) into PowerShell comma list
+    std::vector<std::string> items = tokenize(list);
+    std::string psList;
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (i) psList += ",";
+        psList += items[i];
+    }
+
+    std::string inner = translate(body);
+    if (inner.empty()) inner = body;
+
+    std::string result = "foreach ($" + var + " in " + psList + ") { " + inner + " }";
+    return result;
 }
 
 // Execute the translated command in PowerShell.
@@ -176,9 +269,73 @@ void executeCommand(const std::string& command) {
 }
 
 int main() {
-    std::cout << "psFlip> " << std::flush;
-    std::string input  = getUserInput();
-    std::string result = translate(input);
-    executeCommand(result);
+    // support command-line modes for automated tests
+    int argcV = __argc;
+    char** argvV = __argv;
+    bool noExec = false;
+    int modeIndex = -1; // index where -c or -f appears
+    std::string mode;
+    for (int i = 1; i < argcV; ++i) {
+        std::string a = argvV[i];
+        if (a == "-n") {
+            noExec = true;
+        } else if (a == "-c" || a == "-f") {
+            mode = a;
+            modeIndex = i;
+            break;
+        }
+    }
+
+    if (modeIndex != -1) {
+        if (mode == "-c") {
+            // join remaining args as a single command
+            std::string cmd;
+            for (int i = modeIndex + 1; i < argcV; ++i) {
+                if (i > modeIndex + 1) cmd += " ";
+                cmd += argvV[i];
+            }
+            std::string result = translateForLoop(cmd);
+            if (result.empty()) result = translate(cmd);
+            if (!result.empty()) {
+                if (noExec) std::cout << result << std::endl;
+                else executeCommand(result);
+            }
+            return 0;
+        } else if (mode == "-f") {
+            if (modeIndex + 1 < argcV) {
+                std::string path = argvV[modeIndex + 1];
+                std::ifstream in(path);
+                if (in) {
+                    std::string cmd((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                    cmd = trim(cmd);
+                    std::string result = translateForLoop(cmd);
+                    if (result.empty()) result = translate(cmd);
+                    if (!result.empty()) {
+                        if (noExec) std::cout << result << std::endl;
+                        else executeCommand(result);
+                    }
+                } else {
+                    std::cerr << "Failed to open file: " << path << std::endl;
+                }
+            } else {
+                std::cerr << "Missing file path after -f" << std::endl;
+            }
+            return 0;
+        }
+    }
+
+    while (true) {
+        std::cout << "psFlip> " << std::flush;
+        std::string input = getUserInput();
+        if (input == "" ) continue;
+        if (input == "exit" || input == "quit") break;
+
+        std::string result = translateForLoop(input);
+        if (result.empty()) result = translate(input);
+
+        if (result.empty()) continue;
+        executeCommand(result);
+    }
+
     return 0;
 }

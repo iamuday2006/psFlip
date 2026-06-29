@@ -19,7 +19,7 @@ if (-not $gpp) {
     exit 1
 }
 
-$arguments = @('-O3', '-s', '-DNDEBUG', $SourceFile, '-std=c++17', '-o', $OutputFile)
+$arguments = @('-O3', '-Wall', '-Wextra', $SourceFile, '-std=c++17', '-o', $OutputFile)
 Write-Host "Compiling $SourceFile to $OutputFile..."
 
 $process = Start-Process -FilePath $gpp.Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru

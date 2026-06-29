@@ -52,3 +52,9 @@ That's it.
 ---
 
 Thank you for using psFlip! If you find a command missing, feel free to by adding it to the `char tree`. Happy coding!
+
+## New features
+
+- Tab completion: press `Tab` while typing to autocomplete commands or filenames.
+- REPL mode: run `psFlip.exe` and enter multiple commands; type `exit` or `quit` to leave.
+- Basic Bash-style `for` loops: patterns like `for i in 1 2 3; do echo $i; done` are translated to PowerShell `foreach` blocks.
